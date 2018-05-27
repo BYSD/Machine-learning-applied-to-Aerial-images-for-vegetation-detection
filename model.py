@@ -61,41 +61,70 @@ from keras.callbacks           import EarlyStopping, ModelCheckpoint, ReduceLROn
 from sklearn                   import metrics
 from sklearn.model_selection   import train_test_split
 
+MODELS_DIR = "HOME"
+def save_makedirs(path):
+    """ Create directory if and only if it does not exist yet"""
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
 
+timestamp = time.strftime("%d_%m_%Y_%H%M")
+model_id = "{}".format(timestamp)
+model_dir = os.path.join(MODELS_DIR, model_id)
+save_makedirs(model_dir)
+weights_path = os.path.join(model_dir, "best_weights.h5")
+
+
+callbacks = [EarlyStopping(monitor='val_loss',
+                           patience=8,
+                           verbose=1,
+                           min_delta=1e-4),
+             ReduceLROnPlateau(monitor='val_loss',
+                               factor=0.1,
+                               patience=4,
+                               verbose=1,
+                               epsilon=1e-4),
+             ModelCheckpoint(monitor='val_loss',
+                             filepath=weights_path,
+                             save_best_only=True,
+                             save_weights_only=True),
+             TensorBoard(log_dir='logs')]
 # In[ ]:
 
-def simple_model(input_shape=(64, 64, 3), num_classes=4096):
+def model(input_shape=(64, 64, 3), num_classes=4096):
     inputs = Input(shape=input_shape)
     # 64
 
-    down2 = Conv2D(64, (3, 3), padding='same')(inputs)
+    down = Conv2D(64, (3, 3), padding='same')(inputs)
+    down = BatchNormalization()(down)
+    down = Activation('relu')(down)
+    down = Conv2D(64, (3, 3), padding='same')(down)
+    down = BatchNormalization()(down)
+    down = Activation('relu')(down)
+    down_pool = MaxPooling2D((2, 2), strides=(2, 2))(down)
+    # 32
+
+    down1 = Conv2D(128, (3, 3), padding='same')(down_pool)
+    down1 = BatchNormalization()(down1)
+    down1 = Activation('relu')(down1)
+    down1 = Conv2D(128, (3, 3), padding='same')(down1)
+    down1 = BatchNormalization()(down1)
+    down1 = Activation('relu')(down1)
+    down1_pool = MaxPooling2D((2, 2), strides=(2, 2))(down1)
+    # 16
+
+    down2 = Conv2D(256, (3, 3), padding='same')(down1_pool)
     down2 = BatchNormalization()(down2)
     down2 = Activation('relu')(down2)
-    down2 = Conv2D(64, (3, 3), padding='same')(down2)
+    down2 = Conv2D(256, (3, 3), padding='same')(down2)
     down2 = BatchNormalization()(down2)
     down2 = Activation('relu')(down2)
     down2_pool = MaxPooling2D((2, 2), strides=(2, 2))(down2)
-    # 32
-
-    down3 = Conv2D(128, (3, 3), padding='same')(down2_pool)
-    down3 = BatchNormalization()(down3)
-    down3 = Activation('relu')(down3)
-    down3 = Conv2D(128, (3, 3), padding='same')(down3)
-    down3 = BatchNormalization()(down3)
-    down3 = Activation('relu')(down3)
-    down3_pool = MaxPooling2D((2, 2), strides=(2, 2))(down3)
-    # 16
-
-    down4 = Conv2D(256, (3, 3), padding='same')(down3_pool)
-    down4 = BatchNormalization()(down4)
-    down4 = Activation('relu')(down4)
-    down4 = Conv2D(256, (3, 3), padding='same')(down4)
-    down4 = BatchNormalization()(down4)
-    down4 = Activation('relu')(down4)
-    down4_pool = MaxPooling2D((2, 2), strides=(2, 2))(down4)
     # 8
 
-    center = Conv2D(512, (3, 3), padding='same')(down4_pool)
+    center = Conv2D(512, (3, 3), padding='same')(down2_pool)
     center = BatchNormalization()(center)
     center = Activation('relu')(center)
     center = Conv2D(512, (3, 3), padding='same')(center)
@@ -103,46 +132,46 @@ def simple_model(input_shape=(64, 64, 3), num_classes=4096):
     center = Activation('relu')(center)
     # center
 
-    up4 = UpSampling2D((2, 2))(center)
-    up4 = concatenate([down4, up4], axis=3)
-    up4 = Conv2D(256, (3, 3), padding='same')(up4)
-    up4 = BatchNormalization()(up4)
-    up4 = Activation('relu')(up4)
-    up4 = Conv2D(256, (3, 3), padding='same')(up4)
-    up4 = BatchNormalization()(up4)
-    up4 = Activation('relu')(up4)
-    up4 = Conv2D(256, (3, 3), padding='same')(up4)
-    up4 = BatchNormalization()(up4)
-    up4 = Activation('relu')(up4)
+    up2 = UpSampling2D((2, 2))(center)
+    up2 = concatenate([down2, up2], axis=3)
+    up2 = Conv2D(256, (3, 3), padding='same')(up2)
+    up2 = BatchNormalization()(up2)
+    up2 = Activation('relu')(up2)
+    up2 = Conv2D(256, (3, 3), padding='same')(up2)
+    up2 = BatchNormalization()(up2)
+    up2 = Activation('relu')(up2)
+    up2 = Conv2D(256, (3, 3), padding='same')(up2)
+    up2 = BatchNormalization()(up2)
+    up2 = Activation('relu')(up2)
     # 16
 
-    up3 = UpSampling2D((2, 2))(up4)
-    up3 = concatenate([down3, up3], axis=3)
-    up3 = Conv2D(128, (3, 3), padding='same')(up3)
-    up3 = BatchNormalization()(up3)
-    up3 = Activation('relu')(up3)
-    up3 = Conv2D(128, (3, 3), padding='same')(up3)
-    up3 = BatchNormalization()(up3)
-    up3 = Activation('relu')(up3)
-    up3 = Conv2D(128, (3, 3), padding='same')(up3)
-    up3 = BatchNormalization()(up3)
-    up3 = Activation('relu')(up3)
+    up1 = UpSampling2D((2, 2))(up1)
+    up1 = concatenate([down1, up1], axis=3)
+    up1 = Conv2D(128, (3, 3), padding='same')(up1)
+    up1 = BatchNormalization()(up1)
+    up1 = Activation('relu')(up1)
+    up1 = Conv2D(128, (3, 3), padding='same')(up1)
+    up1 = BatchNormalization()(up1)
+    up1 = Activation('relu')(up1)
+    up1 = Conv2D(128, (3, 3), padding='same')(up1)
+    up1 = BatchNormalization()(up1)
+    up1 = Activation('relu')(up1)
     # 32
 
-    up2 = UpSampling2D((2, 2))(up3)
-    up2 = concatenate([down2, up2], axis=3)
-    up2 = Conv2D(64, (3, 3), padding='same')(up2)
-    up2 = BatchNormalization()(up2)
-    up2 = Activation('relu')(up2)
-    up2 = Conv2D(64, (3, 3), padding='same')(up2)
-    up2 = BatchNormalization()(up2)
-    up2 = Activation('relu')(up2)
-    up2 = Conv2D(64, (3, 3), padding='same')(up2)
-    up2 = BatchNormalization()(up2)
-    up2 = Activation('relu')(up2)
+    up = UpSampling2D((2, 2))(up1)
+    up = concatenate([down, up], axis=3)
+    up = Conv2D(64, (3, 3), padding='same')(up)
+    up = BatchNormalization()(up)
+    up = Activation('relu')(up)
+    up = Conv2D(64, (3, 3), padding='same')(up)
+    up = BatchNormalization()(up)
+    up = Activation('relu')(up)
+    up = Conv2D(64, (3, 3), padding='same')(up)
+    up = BatchNormalization()(up)
+    up = Activation('relu')(up)
     # 64
 
-    conv = Conv2D(64, (1, 1), activation='relu')(up2)
+    conv = Conv2D(64, (1, 1), activation='relu')(up)
     pool = MaxPooling2D(pool_size=(2, 2))(conv)
     poop = Dropout(0.25)(pool)
     flat = Flatten()(pool)
@@ -173,7 +202,7 @@ class GenerateDataset():
         self.gt_path = gt_path
     # Convert image and groundtruth to matrices
         def load_image( self ) :
-        DATA = {}
+        #DATA = {}
         DATA = defaultdict(list)
         for filename in sorted(glob.glob(self.image_path))[:5]:
             img = Image.open(filename)
@@ -185,7 +214,6 @@ class GenerateDataset():
         return DATA
     
     def load_gt( self ) :
-        DATA = {}
         DATA = defaultdict(list)
         for filename in sorted(glob.glob(self.gt_path))[:5]:
             img = Image.open(filename)
@@ -244,8 +272,7 @@ class GenerateDataset():
     
     def binarize_gt(self, gt_data):
         """ create the bitmap for a given image. """
-
-        #gt_data = rasterio.open(self.gt_path).read(1)
+        
         gt_data[gt_data > 0] = 1
     
         return gt_data
@@ -276,17 +303,17 @@ for i in y.keys():
 
 
 # Create patches of size n x n
-# Create patches of size n x n
 raw_data = []
 for i in x.keys():
     raw_data += data_gen.create_patches(x[i], i)
+    
+# Create patches of size n x n
 raw_gt = []
 for i in y.keys():
     raw_gt += data_gen.create_patches(y[i], i)
+    
 # In[ ]:
 
-DATA = {}
-from collections import defaultdict
 DATA = defaultdict(list)
 for i in raw_gt:
     name = i[2]
@@ -317,7 +344,6 @@ data = data_gen.normalise_input(data)
 
 w.resetwarnings()
 # Create train-test split
-from sklearn.model_selection import train_test_split
 
 x_train, x_test, y_train, y_test = train_test_split(data, gt, test_size=0.25, random_state=1)
 
@@ -325,22 +351,21 @@ x_train, x_test, y_train, y_test = train_test_split(data, gt, test_size=0.25, ra
 # In[ ]:
 
 
-x_train.shape, x_test.shape, y_train.shape, y_test.shape
+#x_train.shape, x_test.shape, y_train.shape, y_test.shape
 
 
 # In[ ]:
 
 
-MODELS_DIR = "HOME"
 
-def init_model(nb_filters, filter_size, stride, patch_size, pool_size,
-        pool_stride, learning_rate, momentum, decay, model_dir):
-    
+
+def init_model(learning_rate, momentum, decay, model_dir):
+    #nb_filters, filter_size, stride, patch_size, pool_size,pool_stride, 
     #intialize model
-    num_channels = 3
+    #num_channels = 3
     model = Sequential()
 
-    model = simple_model()
+    model = model()
     model = compile_model(model, learning_rate, momentum, decay)
     
     # Print a summary of the model to the console.
@@ -358,7 +383,7 @@ def init_model(nb_filters, filter_size, stride, patch_size, pool_size,
 
 def compile_model(model, learning_rate, momentum, decay):
     """ Compile the keras model with the given hyperparameters."""
-    optimizer = RMSprop(lr=learning_rate) #SGD(lr=learning_rate, momentum=momentum, decay=decay)
+    optimizer = SGD(lr=learning_rate, momentum=momentum, decay=decay) #RMSprop(lr=learning_rate) #Adam(lr=learning_rate)
 
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizer,
@@ -381,26 +406,21 @@ def save_model(model, path):
     weights_path = os.path.join(path, "weights.h5")
     model.save_weights(weights_path)
 
-def save_makedirs(path):
-    """ Create directory if and only if it does not exist yet"""
-    try:
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
-
 
 # In[ ]:
 
 
 def train_model(model, x, y, patch_size, model_dir,
-                nb_epoch=10, checkpoints=False, tensorboard=False,
+                nb_epoch=200, checkpoints=False, tensorboard=False,
                earlystop=False):
     """ Train the model with the given features and labels """
     
     print("Start training.")
-    model.fit(x, y, epochs=nb_epoch, validation_split=0.15)
+    hist = model.fit(x, y, batch_size=patch_size, epochs=nb_epoch, callbacks=callbacks, validation_split=0.15)
     save_model(model, model_dir)
+    out_file = os.path.join(model_dir, "history.pickle")
+    with open(out_file, "wb") as out:
+        pickle.dump(hist.history, out)
     
     return model 
 
@@ -408,16 +428,10 @@ def train_model(model, x, y, patch_size, model_dir,
 # In[ ]:
 
 
-timestamp = time.strftime("%d_%m_%Y_%H%M")
-model_id = "{}".format(timestamp)
-model_dir = os.path.join(MODELS_DIR, model_id)
-save_makedirs(model_dir)
-
-
 # In[ ]:
 
 
-model = init_model(64, 9, (2,2), 64, 2, 1, 0.0005, 0.9, 0.0, model_dir)
+model = init_model(0.05, 0.9, 0.0, model_dir)
 
 
 # In[ ]:
@@ -434,10 +448,10 @@ def evaluate_model(model, features, labels, patch_size, out_path, out_format='Ge
     print('_' * 100)
     print('Start evaluating model.')
     
-    #X, y_true = data_gen.get_matrix_form(features, labels)
-    #X = data_gen.normalise_input(X)
-    X = features
-    y_true = labels
+    X, y_true = data_gen.get_matrix_form(features, labels)
+    X = data_gen.normalise_input(X)
+    #X = features
+    #y_true = labels
     y_predicted = model.predict(X)
     predicted_bitmap = np.array(y_predicted)
     
@@ -480,13 +494,14 @@ def visualise_predictions(predictions, labels, false_positives, patch_size, out_
     # have any information about the position in the source for each
     # patch in the predictions and false positives. We get this information from the labels.
     
-    for i, (_, position, path_to_geotiff) in enumerate(labels):
+    for i, (_, position, path) in enumerate(labels):
         prediction_patch = predictions[i, :, :, :]
         false_positive_patch = false_positives[i, :, :, :]
         label_patch = labels[i][0]
-        results.append(((prediction_patch, label_patch, false_positive_patch), position, path_to_geotiff))
+        results.append(((prediction_patch, label_patch, false_positive_patch), position, path))
     #print("RESULTS: ", results)
     #visualise_results(results, patch_size, out_path, out_format=out_format) 
+    np.save(out_path+'/'+'result.npy',results)  
         
 def precision_recall_curve(y_true, y_predicted, out_path):
     """ Create a PNG with the precision-recall curve for our predictions """
