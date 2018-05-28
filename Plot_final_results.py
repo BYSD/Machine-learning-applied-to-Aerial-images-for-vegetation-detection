@@ -199,7 +199,7 @@ plt.show()
 # In[ ]:
 
 
-res = np.load("/home/yasser/Documents/sgd005200/result.npy")
+res = np.load("/home/yasser/Documents/callbacks/result.npy")
 res.shape
 
 
@@ -307,14 +307,14 @@ crop_img = img[0:2944, 0:3968]
 # In[ ]:
 
 
-mask1 = cv2.imread('/home/yasser/Documents/AIMS Essay/Codes/sgd005200/prediction.jpg')
+mask1 = cv2.imread('/home/yasser/Documents/callbacks/prediction.jpg')
 #plt.imshow(mask1)
 
 
 # In[ ]:
 
 
-mask2 = cv2.imread('/home/yasser/Documents/AIMS Essay/Codes/sgd005200/false_pos.jpg')
+mask2 = cv2.imread('/home/yasser/Documents/callbacks/false_pos.jpg')
 #plt.imshow(mask2)
 
 
@@ -353,6 +353,9 @@ plt.savefig("/home/yasser/Documents/callbacks/compare.jpg")
 
 
 # In[ ]:
+
+
+
 
 
 
