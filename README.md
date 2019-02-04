@@ -1,2 +1,2 @@
-# AIMS-Essay
-TensorFlow
+# Machine learning applied to aerial images for vegetation detection
+## Master thesis
